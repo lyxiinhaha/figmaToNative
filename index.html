@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figma到Android转换工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #2563eb;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="text"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .checkbox-container input {
+            margin-right: 10px;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        button:disabled {
+            background-color: #93c5fd;
+            cursor: not-allowed;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .alert-success {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .alert-error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        .alert-icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom: 2px solid #2563eb;
+            color: #2563eb;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .download-btn {
+            background-color: transparent;
+            color: #2563eb;
+            border: 1px solid #2563eb;
+            padding: 5px 10px;
+            width: auto;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+        .download-btn:hover {
+            background-color: #eff6ff;
+        }
+        .download-icon {
+            margin-right: 5px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Figma到Android转换工具</h1>
+        <p>将Figma设计文件转换为Android XML布局和Java/Kotlin代码</p>
+    </header>
+
+    <div class="card">
+        <form id="convertForm">
+            <div class="checkbox-container">
+                <input type="checkbox" id="useSampleData" checked>
+                <label for="useSampleData">使用示例设计数据（登录页面）</label>
+            </div>
+            
+            <div id="figmaInputs" class="hidden">
+                <div class="form-group">
+                    <label for="figmaToken">Figma访问令牌</label>
+                    <input type="password" id="figmaToken" placeholder="输入您的Figma个人访问令牌">
+                    <p class="help-text">在Figma账户设置中生成个人访问令牌</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="figmaFileId">Figma文件ID</label>
+                    <input type="text" id="figmaFileId" placeholder="例如: abcdef123456">
+                    <p class="help-text">从Figma文件URL中获取: https://www.figma.com/file/&lt;文件ID&gt;/...</p>
+                </div>
+            </div>
+
+            <button type="submit" id="convertBtn">转换为Android代码</button>
+            
+            <p id="sampleHelp" class="help-text" style="text-align: center;">使用示例数据可以无需Figma账户即可体验转换功能</p>
+        </form>
+    </div>
+
+    <div id="resultContainer" class="hidden">
+        <div id="alertBox" class="alert">
+            <span class="alert-icon">✓</span>
+            <div>
+                <strong id="alertTitle"></strong>
+                <div id="alertMessage"></div>
+            </div>
+        </div>
+
+        <div id="codeContainer" class="card">
+            <div class="tabs">
+                <div class="tab active" data-tab="xml">XML布局</div>
+                <div class="tab" data-tab="java">Java代码</div>
+                <div class="tab" data-tab="kotlin">Kotlin代码</div>
+            </div>
+            
+            <div id="xmlContent" class="tab-content active">
+                <div class="code-header">
+                    <h3>activity_main.xml</h3>
+                    <button class="download-btn" onclick="downloadCode('xml', 'activity_main.xml')">
+                        <span class="download-icon">⬇</span> 下载XML
+                    </button>
+                </div>
+                <textarea id="xmlCode" readonly rows="15"></textarea>
+            </div>
+            
+            <div id="javaContent" class="tab-content">
+                <div class="code-header">
+                    <h3>MainActivity.java</h3>
+                    <button class="download-btn" onclick="downloadCode('java', 'MainActivity.java')">
+                        <span class="download-icon">⬇</span> 下载Java
+                    </button>
+                </div>
+                <textarea id="javaCode" readonly rows="15"></textarea>
+            </div>
+            
+            <div id="kotlinContent" class="tab-content">
+                <div class="code-header">
+                    <h3>MainActivity.kt</h3>
+                    <button class="download-btn" onclick="downloadCode('kotlin', 'MainActivity.kt')">
+                        <span class="download-icon">⬇</span> 下载Kotlin
+                    </button>
+                </div>
+                <textarea id="kotlinCode" readonly rows="15"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2025 Figma到Android转换工具</p>
+    </footer>
+
+    <script>
+        // 示例设计数据
+        const sampleXml = `<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent">
+  
+  <TextView
+    android:id="@+id/title"
+    android:layout_width="200dp"
+    android:layout_height="40dp"
+    android:text="欢迎登录"
+    android:textSize="24sp"
+    android:textStyle="bold"
+    android:textAlignment="center"
+    android:textColor="#1a1a1a"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:layout_marginTop="80dp"/>
+    
+  <EditText
+    android:id="@+id/username_input"
+    android:layout_width="280dp"
+    android:layout_height="48dp"
+    android:background="@drawable/edit_text_background"
+    android:hint="用户名"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    app:layout_constraintTop_toBottomOf="@id/title"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:layout_marginTop="40dp"/>
+    
+  <EditText
+    android:id="@+id/password_input"
+    android:layout_width="280dp"
+    android:layout_height="48dp"
+    android:background="@drawable/edit_text_background"
+    android:hint="密码"
+    android:inputType="textPassword"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    app:layout_constraintTop_toBottomOf="@id/username_input"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:layout_marginTop="20dp"/>
+    
+  <Button
+    android:id="@+id/login_button"
+    android:layout_width="280dp"
+    android:layout_height="48dp"
+    android:text="登录"
+    android:textSize="16sp"
+    android:textColor="#ffffff"
+    android:background="@drawable/button_background"
+    app:layout_constraintTop_toBottomOf="@id/password_input"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:layout_marginTop="40dp"/>
+</androidx.constraintlayout.widget.ConstraintLayout>`;
+
+        const sampleJava = `package com.example.figmatoandroid;
+
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+
+    private TextView title;
+    private EditText usernameInput;
+    private EditText passwordInput;
+    private Button loginButton;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        initViews();
+        setListeners();
+    }
+    
+    private void initViews() {
+        title = findViewById(R.id.title);
+        usernameInput = findViewById(R.id.username_input);
+        passwordInput = findViewById(R.id.password_input);
+        loginButton = findViewById(R.id.login_button);
+    }
+    
+    private void setListeners() {
+        loginButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String username = usernameInput.getText().toString();
+                String password = passwordInput.getText().toString();
+                
+                if (username.isEmpty() || password.isEmpty()) {
+                    Toast.makeText(MainActivity.this, "请输入用户名和密码", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                // TODO: 实现登录逻辑
+                Toast.makeText(MainActivity.this, "登录成功", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+}`;
+
+        const sampleKotlin = `package com.example.figmatoandroid
+
+import android.os.Bundle
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var title: TextView
+    private lateinit var usernameInput: EditText
+    private lateinit var passwordInput: EditText
+    private lateinit var loginButton: Button
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        
+        initViews()
+        setListeners()
+    }
+    
+    private fun initViews() {
+        title = findViewById(R.id.title)
+        usernameInput = findViewById(R.id.username_input)
+        passwordInput = findViewById(R.id.password_input)
+        loginButton = findViewById(R.id.login_button)
+    }
+    
+    private fun setListeners() {
+        loginButton.setOnClickListener {
+            val username = usernameInput.text.toString()
+            val password = passwordInput.text.toString()
+            
+            if (username.isEmpty() || password.isEmpty()) {
+                Toast.makeText(this, "请输入用户名和密码", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            
+            // TODO: 实现登录逻辑
+            Toast.makeText(this, "登录成功", Toast.LENGTH_SHORT).show()
+        }
+    }
+}`;
+
+        // DOM元素
+        const useSampleDataCheckbox = document.getElementById('useSampleData');
+        const figmaInputs = document.getElementById('figmaInputs');
+        const convertForm = document.getElementById('convertForm');
+        const convertBtn = document.getElementById('convertBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const alertBox = document.getElementById('alertBox');
+        const alertTitle = document.getElementById('alertTitle');
+        const alertMessage = document.getElementById('alertMessage');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const xmlCode = document.getElementById('xmlCode');
+        const javaCode = document.getElementById('javaCode');
+        const kotlinCode = document.getElementById('kotlinCode');
+
+        // 切换使用示例数据
+        useSampleDataCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                figmaInputs.classList.add('hidden');
+            } else {
+                figmaInputs.classList.remove('hidden');
+            }
+        });
+
+        // 切换标签页
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // 更新标签页状态
+                tabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 更新内容显示
+                tabContents.forEach(content => content.classList.remove('active'));
+                document.getElementById(tabId + 'Content').classList.add('active');
+            });
+        });
+
+        // 表单提交
+        convertForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const useSampleData = useSampleDataCheckbox.checked;
+            const figmaToken = document.getElementById('figmaToken').value;
+            const figmaFileId = document.getElementById('figmaFileId').value;
+            
+            if (!useSampleData && (!figmaToken || !figmaFileId)) {
+                showAlert(false, '转换失败', 'Figma访问令牌和文件ID都是必填项，或者选择使用示例数据');
+                return;
+            }
+            
+            // 显示加载状态
+            convertBtn.disabled = true;
+            convertBtn.textContent = '正在转换...';
+            
+            // 模拟API调用
+            setTimeout(() => {
+                if (useSampleData) {
+                    // 使用示例数据
+                    showResult(true, '转换成功', '示例Figma设计已成功转换为Android代码', {
+                        xml: sampleXml,
+                        java: sampleJava,
+                        kotlin: sampleKotlin
+                    });
+                } else {
+                    // 实际情况下这里应该调用后端API
+                    showAlert(false, '转换失败', '目前仅支持示例数据，请选择使用示例数据选项');
+                }
+                
+                // 恢复按钮状态
+                convertBtn.disabled = false;
+                convertBtn.textContent = '转换为Android代码';
+            }, 1000);
+        });
+
+        // 显示结果
+        function showResult(success, title, message, files) {
+            showAlert(success, title, message);
+            
+            if (success && files) {
+                xmlCode.value = files.xml || '';
+                javaCode.value = files.java || '';
+                kotlinCode.value = files.kotlin || '';
+                resultContainer.classList.remove('hidden');
+            }
+        }
+
+        // 显示提示
+        function showAlert(success, title, message) {
+            alertBox.className = success ? 'alert alert-success' : 'alert alert-error';
+            alertBox.querySelector('.alert-icon').textContent = success ? '✓' : '✗';
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+            resultContainer.classList.remove('hidden');
+            
+            // 如果失败且没有显示代码，隐藏代码容器
+            if (!success) {
+                document.getElementById('codeContainer').classList.add('hidden');
+            } else {
+                document.getElementById('codeContainer').classList.remove('hidden');
+            }
+            
+            // 滚动到结果区域
+            resultContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 下载代码
+        function downloadCode(type, filename) {
+            let content = '';
+            
+            switch (type) {
+                case 'xml':
+                    content = xmlCode.value;
+                    break;
+                case 'java':
+                    content = javaCode.value;
+                    break;
+                case 'kotlin':
+                    content = kotlinCode.value;
+                    break;
+            }
+            
+            if (!content) return;
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
